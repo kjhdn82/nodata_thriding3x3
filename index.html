@@ -8,20 +8,20 @@
   <style>
     body {
       background-color: #f8f9fa;
-      padding-top: 60px;
+      padding-top: 50px;
       text-align: center;
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(3, 80px);
-      gap: 8px;
+      gap: 6px;
       justify-content: center;
+      margin-top: 20px;
     }
     .tile {
-      width: 80px;
-      height: 80px;
-      line-height: 80px;
-      font-size: 24px;
+      width: 60px;
+      height: 60px;
+      line-height: 60px;
+      font-size: 20px;
       font-weight: bold;
       border-radius: 8px;
       background-color: #ffffff;
@@ -36,13 +36,22 @@
   </style>
 </head>
 <body>
-  <h1 class="mb-4">🧩 슬라이딩 퍼즐</h1>
-  <p class="text-muted">1부터 8까지 순서대로 맞춰보세요!</p>
+  <h1 class="mb-3">🧩 슬라이딩 퍼즐</h1>
+  <h4 id="level">퍼즐 크기: 3×3</h4>
+  <p id="timer" class="fs-5 text-muted">⏱️ 경과 시간: 0초</p>
   <div id="grid" class="grid"></div>
   <p id="message" class="fw-bold mt-4"></p>
 
   <script>
+    let size = 3;
     let tiles = [];
+    let startTime;
+    let timerInterval;
+
+    const gridEl = document.getElementById("grid");
+    const levelEl = document.getElementById("level");
+    const timerEl = document.getElementById("timer");
+    const messageEl = document.getElementById("message");
 
     function shuffle(array) {
       let currentIndex = array.length;
@@ -54,55 +63,6 @@
       return array;
     }
 
-    function render() {
-      const grid = document.getElementById("grid");
-      grid.innerHTML = "";
-
-      tiles.forEach((value, i) => {
-        const tile = document.createElement("div");
-        tile.className = "tile" + (value === 0 ? " empty" : "");
-        tile.textContent = value === 0 ? "" : value;
-        tile.addEventListener("click", () => move(i));
-        grid.appendChild(tile);
-      });
-    }
-
-    function move(index) {
-      const emptyIndex = tiles.indexOf(0);
-      const validMoves = [index - 1, index + 1, index - 3, index + 3];
-
-      if (validMoves.includes(emptyIndex) &&
-          isAdjacent(index, emptyIndex)) {
-        [tiles[index], tiles[emptyIndex]] = [tiles[emptyIndex], tiles[index]];
-        render();
-        checkWin();
-      }
-    }
-
-    function isAdjacent(i1, i2) {
-      const row1 = Math.floor(i1 / 3), col1 = i1 % 3;
-      const row2 = Math.floor(i2 / 3), col2 = i2 % 3;
-      return Math.abs(row1 - row2) + Math.abs(col1 - col2) === 1;
-    }
-
-    function checkWin() {
-      const message = document.getElementById("message");
-      const win = [...tiles.slice(0,8)].every((v, i) => v === i + 1);
-      if (win) {
-        message.textContent = "🎉 축하합니다! 퍼즐을 완성했어요!";
-      } else {
-        message.textContent = "";
-      }
-    }
-
-    function init() {
-      do {
-        tiles = shuffle([1,2,3,4,5,6,7,8,0]);
-      } while (!isSolvable(tiles));
-      render();
-    }
-
-    // 슬라이딩 퍼즐의 해결 가능 여부 판단 (inversion 체크)
     function isSolvable(arr) {
       let inv = 0;
       for (let i = 0; i < arr.length; i++) {
@@ -111,6 +71,81 @@
         }
       }
       return inv % 2 === 0;
+    }
+
+    function render() {
+      gridEl.innerHTML = "";
+      gridEl.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+
+      tiles.forEach((val, i) => {
+        const tile = document.createElement("div");
+        tile.className = "tile" + (val === 0 ? " empty" : "");
+        tile.textContent = val === 0 ? "" : val;
+        tile.addEventListener("click", () => move(i));
+        gridEl.appendChild(tile);
+      });
+    }
+
+    function isAdjacent(i1, i2) {
+      const r1 = Math.floor(i1 / size), c1 = i1 % size;
+      const r2 = Math.floor(i2 / size), c2 = i2 % size;
+      return Math.abs(r1 - r2) + Math.abs(c1 - c2) === 1;
+    }
+
+    function move(index) {
+      const emptyIndex = tiles.indexOf(0);
+      if (isAdjacent(index, emptyIndex)) {
+        [tiles[index], tiles[emptyIndex]] = [tiles[emptyIndex], tiles[index]];
+        render();
+        checkWin();
+      }
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      startTime = Date.now();
+      timerInterval = setInterval(() => {
+        const secs = Math.floor((Date.now() - startTime) / 1000);
+        timerEl.textContent = `⏱️ 경과 시간: ${secs}초`;
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+
+    function checkWin() {
+      const solved = tiles.slice(0, tiles.length - 1).every((v, i) => v === i + 1);
+      if (solved) {
+        stopTimer();
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        messageEl.textContent = `🎉 퍼즐 완성! (${elapsed}초 소요)`;
+
+        if (size < 6) {
+          setTimeout(() => {
+            size++;
+            messageEl.textContent = "";
+            init();
+          }, 1500);
+        } else {
+          messageEl.textContent += " 🏁 마지막 단계 클리어!";
+        }
+      } else {
+        messageEl.textContent = "";
+      }
+    }
+
+    function init() {
+      const total = size * size;
+      const numbers = [...Array(total - 1)].map((_, i) => i + 1).concat(0);
+
+      do {
+        tiles = shuffle(numbers.slice());
+      } while (!isSolvable(tiles));
+
+      levelEl.textContent = `퍼즐 크기: ${size}×${size}`;
+      render();
+      startTimer();
     }
 
     init();
